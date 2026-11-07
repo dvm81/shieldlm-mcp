@@ -80,7 +80,7 @@ The rules from `precedence_claim` down to `destructive` were written from the po
 
 On load it scores one known injection and one plain description, and stops with an error unless it tells them apart. Some transformers releases load the model without a warning but give every text about the same score; the `[ml]` extra pins transformers to versions that pass this check.
 
-ShieldLM was trained on prompts, not tool descriptions, so its thresholds are a starting point here. Compare both detectors with `python scripts/eval_corpus.py --detector shieldlm`.
+ShieldLM was trained on prompts, not tool descriptions. On 2,851 real descriptions from npm packages it flags 4.1% at `--fpr 0.001` and 25% at `--fpr 0.01`, so C1 reports a finding from ShieldLM alone as `medium`. When a rule fires as well, the rule decides the severity. Compare both detectors with `python scripts/eval_corpus.py --detector shieldlm`.
 
 ## 3. Checks
 

@@ -57,9 +57,12 @@ def run(inventory: Inventory, ctx: ScanContext) -> list[Finding]:
                 hidden = hidden_content(text)
                 attack_signals = [s for s in res.signals if s not in HIDDEN_SIGNALS]
                 if res.label == "injection" and attack_signals:
+                    # ShieldLM flags about 4% of real tool descriptions even at its strictest threshold,
+                    # so a finding from it alone is a warning that stays below the default --fail-on.
+                    ml_only = attack_signals == ["shieldlm"]
                     if res.sensitive_target:
                         sev = Severity.CRITICAL
-                    elif res.probability >= 0.8:
+                    elif res.probability >= 0.8 and not ml_only:
                         sev = Severity.HIGH
                     else:
                         sev = Severity.MEDIUM

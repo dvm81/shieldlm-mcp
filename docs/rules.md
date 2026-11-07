@@ -6,9 +6,9 @@ Every rule shipped in shieldlm-mcp, with its default severity, the [OWASP Top 10
 
 **ToolDescriptionInjection** · default severity **high** · OWASP ASI01, ASI04 · CWE-1427
 
-Free text the model reads as trusted (tool descriptions, parameter descriptions, annotation titles, server instructions) contains orders aimed at the model: ignore earlier instructions, hide actions from the user, read credential files, send data to a URL or email address, or move secrets into a tool argument.
+Free text the model reads as trusted (tool descriptions, parameter descriptions, annotation titles, server instructions) contains orders aimed at the model: ignore earlier instructions, hide actions from the user, read credential files, send data to a URL or email address, move secrets into a tool argument, take priority over the user's request, rewrite the user's arguments, or call another tool first under a made-up threat.
 
-Critical when the text targets credentials or secrets; high when the detector is confident; medium otherwise. Hidden content raises the level by one.
+Critical when the text targets credentials or secrets; high when the rules are confident; medium otherwise, and always medium when only ShieldLM fired. Hidden content raises the level by one.
 
 **Fix:** Remove the server or tool, or pin a reviewed version. Report the description to the maintainer.
 
