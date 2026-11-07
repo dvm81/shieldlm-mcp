@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "shieldlm-mcp"
+version = "0.1.0"
+description = "Static security scanner for MCP server configurations: poisoned tool descriptions, over-privilege, typosquats, SARIF output."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Dimiter Milushev" }]
+keywords = ["mcp", "model-context-protocol", "prompt-injection", "llm-security", "agent-security", "sarif"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+  "Environment :: Console",
+]
+dependencies = ["typer>=0.12", "pydantic>=2.6", "rich>=13"]
+
+[project.optional-dependencies]
+ml = ["transformers>=4.40", "torch>=2.1", "sentencepiece", "protobuf"]
+dev = ["pytest>=8", "jsonschema>=4", "ruff>=0.5"]
+
+[project.scripts]
+shieldlm-mcp = "shieldlm_mcp.cli:app"
+
+[project.urls]
+Repository = "https://github.com/dvm81/shieldlm-mcp"
+"ShieldLM model" = "https://huggingface.co/dmilush/shieldlm-deberta-base"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shieldlm_mcp"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008", "UP007", "UP042", "E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

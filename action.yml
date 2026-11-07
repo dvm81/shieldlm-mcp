@@ -1,0 +1,53 @@
+name: shieldlm-mcp
+description: Scan MCP server configs for poisoned tool descriptions, over-privilege, typosquats and unsafe transport; upload SARIF to code scanning.
+branding:
+  icon: shield
+  color: blue
+inputs:
+  paths:
+    description: Space-separated config files, *.tools.json snapshots or directories.
+    default: "."
+  fail-on:
+    description: Fail the job on findings at or above this severity (critical, high, medium, low, info), or "none".
+    default: high
+  upload-sarif:
+    description: Upload results to GitHub code scanning (needs security-events write permission).
+    default: "true"
+  sarif-file:
+    description: Where to write the SARIF report.
+    default: shieldlm-mcp.sarif
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - shell: bash
+      run: pip install --quiet "${{ github.action_path }}"
+    - id: scan
+      shell: bash
+      env:
+        PATHS: ${{ inputs.paths }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        SARIF: ${{ inputs.sarif-file }}
+      run: |
+        set +e
+        # shellcheck disable=SC2086
+        shieldlm-mcp scan $PATHS --format sarif --out "$SARIF" --fail-on "${FAIL_ON/none/critical}"
+        code=$?
+        shieldlm-mcp scan $PATHS --format table || true
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" = "2" ]; then exit 2; fi
+    - if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: shieldlm-mcp
+    - shell: bash
+      env:
+        FAIL_ON: ${{ inputs.fail-on }}
+        CODE: ${{ steps.scan.outputs.exit_code }}
+      run: |
+        if [ "$FAIL_ON" != "none" ] && [ "$CODE" = "1" ]; then
+          echo "::error::shieldlm-mcp found issues at or above '$FAIL_ON'"; exit 1
+        fi

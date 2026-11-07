@@ -1,0 +1,45 @@
+{
+  "feed_version": "2026-11-07",
+  "malicious": [
+    {
+      "id": "SLM-2025-0001",
+      "ecosystem": "npm",
+      "name": "postmark-mcp",
+      "version_range": "*",
+      "indicator_type": "malicious",
+      "summary": "Impostor of the Postmark MCP server; version 1.0.16 BCC'd every sent email to an external address. Not published by Postmark; removed from npm.",
+      "first_seen": "2025-09-17",
+      "references": [
+        "https://thehackernews.com/2025/09/first-malicious-mcp-server-found.html",
+        "https://threatprotect.qualys.com/2025/09/30/malicious-mcp-server-on-npm-postmark-mcp-exploited-in-attack/"
+      ]
+    }
+  ],
+  "known_good": [
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-filesystem"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-memory"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-everything"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-sequential-thinking"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-github"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-slack"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-puppeteer"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-brave-search"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-postgres"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-google-maps"},
+    {"ecosystem": "npm", "name": "@modelcontextprotocol/server-gdrive"},
+    {"ecosystem": "npm", "name": "@playwright/mcp"},
+    {"ecosystem": "npm", "name": "@upstash/context7-mcp"},
+    {"ecosystem": "npm", "name": "@notionhq/notion-mcp-server"},
+    {"ecosystem": "npm", "name": "@stripe/mcp"},
+    {"ecosystem": "npm", "name": "@supabase/mcp-server-supabase"},
+    {"ecosystem": "npm", "name": "@sentry/mcp-server"},
+    {"ecosystem": "npm", "name": "chrome-devtools-mcp"},
+    {"ecosystem": "npm", "name": "firecrawl-mcp"},
+    {"ecosystem": "npm", "name": "mcp-remote"},
+    {"ecosystem": "pypi", "name": "mcp-server-fetch"},
+    {"ecosystem": "pypi", "name": "mcp-server-git"},
+    {"ecosystem": "pypi", "name": "mcp-server-time"},
+    {"ecosystem": "pypi", "name": "mcp-server-sqlite"},
+    {"ecosystem": "docker", "name": "ghcr.io/github/github-mcp-server"}
+  ]
+}
