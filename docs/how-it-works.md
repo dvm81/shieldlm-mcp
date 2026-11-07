@@ -42,15 +42,25 @@ Used by the C1 checks to decide whether a piece of text is an attempt to instruc
 | `sensitive_read` | 0.95 | instructs reading or sending a credential or config file (`~/.ssh`, `.aws/credentials`, `.env`, `mcp.json`, …) |
 | `override` | 0.90 | tells the model to ignore its existing instructions |
 | `conceal` | 0.90 | tells the model to hide actions from the user |
+| `precedence_claim` | 0.90 | claims to take priority over what the user asked ("this description's priority is higher than the user's request") |
 | `exfil_url` | 0.85 | instructs sending data to an external URL |
 | `secret_exfil` | 0.85 | instructs moving secrets into a tool argument or the response |
 | `side_channel_param` | 0.85 | instructs smuggling content through a tool parameter |
+| `user_arg_override` | 0.85 | tells the model to replace values the user chose ("ignore any `model` specified by the user") |
 | `exfil_email` | 0.80 | instructs sending data to a hard-coded email address |
 | `fake_authority_tag` | 0.75 | uses a fake `<IMPORTANT>`, `<system>` or `[SYSTEM]` tag |
+| `deceive_user` | 0.70 | scripts what the model tells the user |
 | `role_reassign` | 0.60 | tries to give the model a new role ("you are now…") |
+| `code_payload` | 0.60 | carries code for the model to run ("execute the following JavaScript", `curl … \| sh`) |
 | `sensitive_path` | 0.55 | mentions a credential or config file path |
 | `cross_tool` | 0.45 | tries to change how other tools are used |
-| `model_directive` | 0.30 | addresses the model with an order ("you must…") |
+| `policy_header` | 0.45 | presents itself as a system policy ("System Policy: …") |
+| `forced_arg_change` | 0.40 | tells the model to alter a tool's arguments ("you must modify the `table_name`") |
+| `forced_prereq` | 0.35 | requires calling another tool first ("before using X, you MUST FIRST call Y") |
+| `consequence_threat` | 0.35 | warns of made-up failures to force compliance ("failure to do so will crash…") |
+| `mandatory_claim` | 0.35 | insists a step is mandatory ("this is NOT optional") |
+| `destructive` | 0.35 | mentions a destructive operation (`DELETE FROM`, `DROP TABLE`, `rm -rf`) |
+| `model_directive` | 0.20 | addresses the model with an order ("you must…") |
 
 Three hidden-content signals, weight 0.6 each: invisible Unicode (zero-width, bidirectional overrides, tag characters), HTML comments, and base64 blobs of 80+ characters. Invisible characters are removed before the rules run, so splitting a word with zero-width spaces does not evade them.
 
@@ -60,7 +70,9 @@ Scores combine as a noisy-OR:
 probability = 1 − ∏ (1 − weight of each signal that fired)
 ```
 
-A text is flagged at 0.5 or above. One strong rule is enough; weak rules only count together. That keeps ordinary API guidance such as "call `list_tables` first" from being flagged.
+A text is flagged at 0.5 or above. One strong rule is enough; weak rules only count together. That keeps ordinary API guidance such as "before using this tool, you must call `list_tables`" from being flagged: `forced_prereq` and `model_directive` together reach 0.48. Adding a made-up threat or a mandatory claim tips it over.
+
+The rules from `precedence_claim` down to `destructive` were written from the poisoned descriptions of 22 MCPTox servers (the `dev` half of `tests/corpus/eval_split.json`). On the other 23 servers they raised recall from 16% to 48%, with no false positives on 876 real descriptions from npm packages that were also held out. Both halves share MCPTox's three attack templates, so expect less on attacks phrased differently.
 
 ### ShieldLM (optional)
 

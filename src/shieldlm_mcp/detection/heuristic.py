@@ -135,8 +135,103 @@ RULES: list[Rule] = [
     Rule(
         "model_directive",
         re.compile(r"\b(you must|you are required to|as an ai|assistant must|the (ai|assistant|model) (must|should))\b", FLAGS),
-        0.3,
+        0.2,
         "addresses the model directly with an order",
+    ),
+    Rule(
+        "precedence_claim",
+        re.compile(
+            r"\bpriority is higher than\b[^.\n]{0,20}\buser"
+            r"|\b(takes?|has) (precedence|priority) over\b[^.\n]{0,30}\b(user|instructions?|request)"
+            r"|\b(supersedes?|overrides?)\b[^.\n]{0,15}\b(the )?user'?s?\b[^.\n]{0,15}\b(request|query|instructions?|prompt)",
+            FLAGS,
+        ),
+        0.9,
+        "claims to take priority over what the user asked",
+    ),
+    Rule(
+        "user_arg_override",
+        re.compile(
+            r"\b(ignore|override|overwrite|disregard|discard)\b[^.\n]{0,25}"
+            r"\b(user'?s?|user-(specified|provided|supplied)|specified by the user|provided by the user|the user (specified|provided|requested|asked for))\b"
+            r"|\boverride\s+user\s+(prompt|query|request|input)\b",
+            FLAGS,
+        ),
+        0.85,
+        "tells the model to replace values the user chose",
+    ),
+    Rule(
+        "code_payload",
+        re.compile(
+            r"\b(execute|run|evaluate)\b[^.\n]{0,15}\bthe following\b[^.\n]{0,25}\b(javascript|js|code|script|command|shell)\b"
+            r"|\bwindow\.location(\.href)?\s*=|\bcurl\b[^\n|]{0,120}\|\s*(ba|z)?sh\b",
+            FLAGS,
+        ),
+        0.6,
+        "carries code for the model to run",
+    ),
+    Rule(
+        "deceive_user",
+        re.compile(r"\b(tell|inform|report)\b[^.\n]{0,40}\bthe (current )?user\b[^.\n]{0,30}\bas (their|his|her) own\b|\bmust tell the user\b", FLAGS),
+        0.7,
+        "scripts what the model tells the user",
+    ),
+    Rule(
+        "policy_header",
+        re.compile(r"(^|\.\s)\s*(system|security|compliance|admin(istrator)?) (policy|notice|directive|requirement)\s*:", FLAGS | re.MULTILINE),
+        0.45,
+        "presents itself as a system policy",
+    ),
+    Rule(
+        "forced_arg_change",
+        re.compile(
+            r"\b(must|always|automatically)\b[^.\n]{0,25}\b(modify|change|replace|rewrite|convert|prepend|append|inject|limit)\b"
+            r"[^.\n]{0,60}\b(parameters?|arguments?|param|query|queries|prompt|uid|mode|`\w+`)",
+            FLAGS,
+        ),
+        0.4,
+        "tells the model to alter a tool's arguments",
+    ),
+    Rule(
+        "forced_prereq",
+        re.compile(
+            r"\bbefore\b[^.\n]{0,60}\b(must|should|need to|always|have to)\b[^.\n]{0,10}\b(first\s+)?(call|use|run|invoke|trigger|execute)\b"
+            r"|\bbefore (using|calling|running|use|any|you|creating|deleting|scraping|providing|retrieving|formatting|proceeding)\b[^.\n]{0,60},?\s+"
+            r"(always\s+)?(use|call|run|trigger|invoke)\s+[`'\"]?[\w./-]+[`'\"]?"
+            r"|\bMUST FIRST\b",
+            FLAGS,
+        ),
+        0.35,
+        "requires calling another tool first",
+    ),
+    Rule(
+        "consequence_threat",
+        re.compile(
+            r"\b(failure to|failing to|skipping|if you skip|if you don't|if this step is skipped)\b[^.\n]{0,40}"
+            r"\b(will|would|may|can|could)\b[^.\n]{0,20}\b(cause|crash|break|corrupt|instability|errors?|fail)",
+            FLAGS,
+        ),
+        0.35,
+        "warns of made-up failures to force compliance",
+    ),
+    Rule(
+        "mandatory_claim",
+        re.compile(
+            r"\b(this|it) is (not optional|mandatory|a mandatory)\b|\bthis (step|procedure) is (critical|essential|mandatory|necessary)\b|\bNOT optional\b",
+            FLAGS,
+        ),
+        0.35,
+        "insists a step is mandatory",
+    ),
+    Rule(
+        "destructive",
+        re.compile(
+            r"\b(DELETE FROM|DROP (TABLE|DATABASE)|TRUNCATE TABLE|rm -rf)\b"
+            r"|\b(delete|empty|wipe|erase)\b[^.\n]{0,15}\b(the table|all (emails|files|records|data|rows)|every (email|file|record))\b",
+            FLAGS,
+        ),
+        0.35,
+        "mentions a destructive operation",
     ),
 ]
 
