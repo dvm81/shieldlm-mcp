@@ -20,7 +20,8 @@ classifiers = [
 dependencies = ["typer>=0.12", "pydantic>=2.6", "rich>=13"]
 
 [project.optional-dependencies]
-ml = ["transformers>=4.40", "torch>=2.1", "sentencepiece", "protobuf"]
+# transformers 5.4 to 5.22 load the ShieldLM model without a warning but give every text about the same score.
+ml = ["transformers>=5.0,<5.4", "torch>=2.1", "sentencepiece", "protobuf"]
 dev = ["pytest>=8", "jsonschema>=4", "ruff>=0.5"]
 
 [project.scripts]

@@ -66,6 +66,8 @@ A text is flagged at 0.5 or above. One strong rule is enough; weak rules only co
 
 `--detector shieldlm` loads [dmilush/shieldlm-deberta-base](https://huggingface.co/dmilush/shieldlm-deberta-base) locally (install with the `[ml]` extra), scores texts in batches of 16 truncated to 512 tokens, and applies the threshold calibrated for the false-positive budget you choose with `--fpr` (0.001, 0.005, 0.01 or 0.05). It runs alongside the rules: a text is flagged if either fires.
 
+On load it scores one known injection and one plain description, and stops with an error unless it tells them apart. Some transformers releases load the model without a warning but give every text about the same score; the `[ml]` extra pins transformers to versions that pass this check.
+
 ShieldLM was trained on prompts, not tool descriptions, so its thresholds are a starting point here. Compare both detectors with `python scripts/eval_corpus.py --detector shieldlm`.
 
 ## 3. Checks

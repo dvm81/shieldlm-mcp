@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -34,7 +35,10 @@ def load_jsonl(path: Path) -> list[dict]:
 
 def shieldlm_scores(texts: list[str], model_name: str, batch_size: int) -> list[float]:
     import torch
+    import transformers
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    from shieldlm_mcp.detection.shieldlm import SELF_CHECK_TEXTS, self_check
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tok = AutoTokenizer.from_pretrained(model_name)
@@ -42,6 +46,9 @@ def shieldlm_scores(texts: list[str], model_name: str, batch_size: int) -> list[
     if device == "cuda":
         model = model.half()
     print(f"ShieldLM on {device}" + (f" ({torch.cuda.get_device_name(0)})" if device == "cuda" else ""), flush=True)
+    with torch.no_grad():
+        enc = tok(list(SELF_CHECK_TEXTS), padding=True, return_tensors="pt").to(device)
+        self_check(torch.softmax(model(**enc).logits.float(), dim=-1)[:, 1].tolist(), transformers.__version__)
     order = sorted(range(len(texts)), key=lambda i: len(texts[i]))  # length-sorted batches run faster
     out = [0.0] * len(texts)
     t0 = time.time()
@@ -69,7 +76,11 @@ def main() -> None:
     if not args.mcptox.exists():
         args.mcptox.parent.mkdir(parents=True, exist_ok=True)
         print(f"downloading MCPTox to {args.mcptox}", flush=True)
-        args.mcptox.write_bytes(urllib.request.urlopen(MCPTOX_URL, timeout=120).read())
+        try:
+            args.mcptox.write_bytes(urllib.request.urlopen(MCPTOX_URL, timeout=120).read())
+        except urllib.error.URLError as e:
+            # The host often refuses scripted downloads (HTTP 403) but serves the same file to a browser.
+            raise SystemExit(f"MCPTox download failed ({e}). Save {MCPTOX_URL} from a browser and pass --mcptox <file>.") from e
     mcptox = [v for group in json.loads(args.mcptox.read_text(encoding="utf-8")) for v in group.values()]
 
     sets: dict[str, tuple[list[str], str]] = {"MCPTox (poisoned)": ([r["tool_content"] for r in mcptox], "recall")}
