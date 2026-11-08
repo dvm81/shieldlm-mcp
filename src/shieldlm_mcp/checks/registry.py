@@ -35,9 +35,13 @@ def _closest_known(pkg: PackageRef, known: list[dict]) -> tuple[str, int] | None
     same_eco = [k["name"] for k in known if k.get("ecosystem") == pkg.ecosystem]
     if pkg.name.lower() in {n.lower() for n in same_eco}:
         return None
+    p_scope = pkg.name.split("/", 1)[0].lower() if pkg.name.startswith("@") and "/" in pkg.name else None
     best: tuple[str, int] | None = None
     for name in same_eco:
         if len(name) < 8:
+            continue
+        # Only a scope's owner can publish in it, so a near-name in the same scope is not a squat.
+        if p_scope and name.lower().startswith(p_scope + "/"):
             continue
         d = min(damerau_levenshtein(pkg.name.lower(), name.lower()), damerau_levenshtein(_norm(pkg.name), _norm(name)))
         if d <= 2 and (best is None or d < best[1]):

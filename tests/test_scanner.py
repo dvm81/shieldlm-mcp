@@ -132,6 +132,14 @@ def test_scoped_typosquat_and_exact_match():
     assert f == []
 
 
+def test_near_names_in_the_same_scope_are_not_typosquats():
+    # Only the scope's owner can publish under @modelcontextprotocol, so server-gitlab is not a squat of server-github.
+    _, f = scan_config({"a": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-gitlab@1.0.0"]}})
+    assert f == []
+    _, f = scan_config({"a": {"command": "npx", "args": ["-y", "@modelcontexprotocol/server-google-maps@1.0.0"]}})
+    assert [x.rule_id for x in f] == ["MCP-C4-TYPOSQUAT"]
+
+
 def scan_config(servers: dict, tmp: Path | None = None):
     import tempfile
 
@@ -145,6 +153,9 @@ def test_env_references_are_not_secrets():
     assert not looks_like_secret("API_KEY", "${env:API_KEY}")
     assert not looks_like_secret("API_KEY", "$API_KEY")
     assert looks_like_secret("API_KEY", "a-literal-value-123")
+    for placeholder in ["YOUR_API_KEY", "your-github-token", "<your token>", "GOOGLE_API_KEY_HERE", "sk-xxxxxxxxxxxxxxxxxxxx",
+                        "replace_me", "API_KEY"]:
+        assert not looks_like_secret("API_KEY", placeholder), placeholder
     token = "gh" + "p_" + "A" * 36
     assert looks_like_secret("ANYTHING", token)
     assert token not in scrub(f"value {token} here")

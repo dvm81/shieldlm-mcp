@@ -11,14 +11,23 @@ TOKEN_SHAPES = re.compile(
     r"|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{30,}|eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{5,})"
 )
 
+# Values people leave for the reader to fill in: YOUR_API_KEY, <token>, sk-xxxx, replace_me, GITHUB_TOKEN_HERE.
+PLACEHOLDER = re.compile(r"your|here$|replace|change[-_ ]?me|placeholder|example|dummy|redacted|<[^>]*>|\{\{|x{4,}|\*{3,}|\.\.\.", re.I)
+
 
 def is_reference(value: str) -> bool:
     """True when a config value points at a variable instead of holding the secret itself."""
     return bool(REFERENCE.match(value.strip()))
 
 
+def is_placeholder(name: str, value: str) -> bool:
+    """True for a value left to be filled in, such as YOUR_API_KEY or the variable's own name."""
+    v = value.strip()
+    return bool(PLACEHOLDER.search(v)) or v.upper() == name.upper()
+
+
 def looks_like_secret(name: str, value: str) -> bool:
-    if not value or is_reference(value):
+    if not value or is_reference(value) or is_placeholder(name, value):
         return False
     return bool(TOKEN_SHAPES.search(value)) or (bool(SECRET_KEY.search(name)) and len(value) >= 8)
 

@@ -6,7 +6,7 @@
     },
     "github": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-githbu@2025.4.8"],
+      "args": ["-y", "@modelcontext-protocol/server-github@2025.4.8"],
       "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "demo-not-a-real-token-1234567890" }
     },
     "postmark": {
