@@ -1,5 +1,10 @@
 # shieldlm-mcp
 
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+[![Model on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20model-shieldlm--deberta--mcp--tools-yellow)](https://huggingface.co/dmilush/shieldlm-deberta-mcp-tools)
+[![OWASP Agentic Top 10](https://img.shields.io/badge/OWASP-Agentic%20Top%2010%202026-orange)](docs/rules.md)
+
 **A static security scanner for MCP server configurations.** It reads the config files your AI agents use to connect to tools (Claude Code, Claude Desktop, Cursor, VS Code) and flags poisoned tool descriptions, over-privileged servers, known-malicious and typosquatted packages, and unsafe transport. Results come out as a terminal table, JSON, or SARIF for GitHub code scanning.
 
 It never starts, connects to or runs the servers it scans. Scanning by starting a server would mean running untrusted code, which is the attack you are checking for.
@@ -132,6 +137,11 @@ Findings appear as code-scanning alerts on the pull request. Reviewed findings c
 - A larger, public, labelled corpus of poisoned tool descriptions
 - More indicator-feed entries and known-good servers
 - Runtime enforcement of the generated policy at the tool-call boundary
+
+## Related
+
+- [ShieldLM](https://github.com/dvm81/shieldlm): the prompt-injection classifier the `shieldlm` detector loads, with its [model](https://huggingface.co/dmilush/shieldlm-deberta-base) and [dataset](https://huggingface.co/datasets/dmilush/shieldlm-prompt-injection).
+- [shieldlm-deberta-mcp-tools](https://huggingface.co/dmilush/shieldlm-deberta-mcp-tools): the fine-tuned model behind `--detector shieldlm-tools`.
 
 ## License
 
