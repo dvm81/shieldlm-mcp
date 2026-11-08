@@ -72,7 +72,7 @@ probability = 1 − ∏ (1 − weight of each signal that fired)
 
 A text is flagged at 0.5 or above. One strong rule is enough; weak rules only count together. That keeps ordinary API guidance such as "before using this tool, you must call `list_tables`" from being flagged: `forced_prereq` and `model_directive` together reach 0.48. Adding a made-up threat or a mandatory claim tips it over.
 
-The rules from `precedence_claim` down to `destructive` were written from the poisoned descriptions of 22 MCPTox servers (the `dev` half of `tests/corpus/eval_split.json`). On the other 23 servers they raised recall from 16% to 48%, with no false positives on 876 real descriptions from npm packages that were also held out. Both halves share MCPTox's three attack templates, so expect less on attacks phrased differently.
+The rules from `precedence_claim` down to `destructive` were written from the poisoned descriptions of 22 MCPTox servers (the `dev` half of `tests/corpus/eval_split.json`). On the other 23 servers they raised recall from 16% to 48%, with no false positives on 876 real descriptions from npm packages that were also held out. Both halves share MCPTox's three attack templates, so expect less on attacks phrased differently: on 244 attacks from three other public sets, the rules catch 30%.
 
 ### ShieldLM (optional)
 
@@ -151,7 +151,7 @@ The text targets a credential file, so the result is a critical **MCP-C1-INJECTI
 ## Limitations
 
 - Tool descriptions are checked only when you provide a snapshot.
-- The rules miss attacks without tell-tale wording: 12 of 20 on the held-out corpus, and 430 of 485 on the independent MCPTox benchmark. That gap is what the ShieldLM backend, and enforcement outside the model, are for.
+- The rules miss attacks without tell-tale wording: 8 of 20 on the held-out corpus, 128 of 246 on the held-out MCPTox servers, and 171 of 244 from other public sets. That gap is what the ShieldLM backend, and enforcement outside the model, are for.
 - English only.
 - The feed has one malicious entry and about 25 known-good servers.
 - ShieldLM was trained on prompts, not tool descriptions.
