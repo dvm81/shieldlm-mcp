@@ -350,5 +350,6 @@ def test_malformed_configs_from_the_wild_do_not_crash():
         "b": {"command": {"executable": "powershell"}, "args": {"runMode": "sync"}},
         "c": {"command": "node", "args": "index.js", "env": "nope", "headers": ["x"]},
         "d": {"url": "http://example.com/mcp", "headers": "Authorization: x"},
+        "e": {"url": "http://[SERVER_IP]:8080/sse"},
     })
     assert any(x.rule_id == "MCP-C2-PLAINTEXT-SECRET" and x.server == "a" for x in f)

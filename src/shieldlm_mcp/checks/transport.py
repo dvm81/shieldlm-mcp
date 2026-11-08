@@ -18,8 +18,11 @@ def run(inventory: Inventory, ctx: ScanContext) -> list[Finding]:
     for s in inventory.servers:
         if s.transport == Transport.STDIO or not s.url:
             continue
-        parts = urlsplit(s.url)
-        host = (parts.hostname or "").lower()
+        try:
+            parts = urlsplit(s.url)
+            host = (parts.hostname or "").lower()
+        except ValueError:  # e.g. http://[SERVER_IP]:8080, a placeholder in brackets
+            continue
         if parts.scheme == "http" and host not in LOCAL_HOSTS and not host.endswith(".localhost"):
             findings.append(
                 make_finding(
