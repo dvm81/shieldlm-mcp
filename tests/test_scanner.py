@@ -342,3 +342,13 @@ def test_shieldlm_only_finding_is_a_warning(tmp_path):
     ctx = ScanContext(detector=EnsembleDetector(HeuristicDetector(), FakeML()), feed=load_feed(), previous_hashes={})
     findings = {f.tool: f.severity.value for f in run_all(discover([snap]), ctx) if f.rule_id == "MCP-C1-INJECTION"}
     assert findings == {"greet": "medium", "fetch": "high"}
+
+
+def test_malformed_configs_from_the_wild_do_not_crash():
+    _, f = scan_config({
+        "a": {"command": ["python", "server.py"], "env": ["API_KEY=abcdefgh12345678"]},
+        "b": {"command": {"executable": "powershell"}, "args": {"runMode": "sync"}},
+        "c": {"command": "node", "args": "index.js", "env": "nope", "headers": ["x"]},
+        "d": {"url": "http://example.com/mcp", "headers": "Authorization: x"},
+    })
+    assert any(x.rule_id == "MCP-C2-PLAINTEXT-SECRET" and x.server == "a" for x in f)

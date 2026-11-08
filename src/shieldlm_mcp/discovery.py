@@ -125,6 +125,21 @@ def _servers_map(data: dict) -> dict | None:
     return None
 
 
+def _as_dict(value) -> dict:
+    """env and headers as a mapping; real configs also write them as ["KEY=VALUE", ...]."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, list):
+        return dict(str(item).split("=", 1) for item in value if "=" in str(item))
+    return {}
+
+
+def _as_list(value) -> list[str]:
+    if isinstance(value, list):
+        return [str(a) for a in value]
+    return [value] if isinstance(value, str) else []
+
+
 def _parse_server(name: str, spec: dict, path: str, text: str) -> Server:
     ref = SourceRef(path=path, line=_key_line(text, name), pointer=f"/{name}")
     kind = str(spec.get("type") or spec.get("transport") or "").lower()
@@ -135,17 +150,21 @@ def _parse_server(name: str, spec: dict, path: str, text: str) -> Server:
             name=name,
             transport=transport,
             url=str(url),
-            headers={str(k): str(v) for k, v in (spec.get("headers") or {}).items()},
+            headers={str(k): str(v) for k, v in _as_dict(spec.get("headers")).items()},
             source_ref=ref,
         )
     command = spec.get("command")
-    args = [str(a) for a in spec.get("args") or []]
+    args = _as_list(spec.get("args"))
+    if isinstance(command, list):  # ["python", "server.py"] instead of command + args
+        command, args = (str(command[0]) if command else None), [str(a) for a in command[1:]] + args
+    elif not isinstance(command, str):
+        command = None
     return Server(
         name=name,
         transport=Transport.STDIO,
-        command=str(command) if command else None,
+        command=command or None,
         args=args,
-        env={str(k): str(v) for k, v in (spec.get("env") or {}).items()},
+        env={str(k): str(v) for k, v in _as_dict(spec.get("env")).items()},
         package=resolve_package(command, args),
         source_ref=ref,
     )
@@ -160,7 +179,7 @@ def _parse_snapshot(data: dict, path: Path, text: str) -> tuple[str, str | None,
     if not server:
         server = path.name.split(".")[0]
     tools: list[Tool] = []
-    for i, t in enumerate(tools_raw or []):
+    for i, t in enumerate(tools_raw if isinstance(tools_raw, list) else []):
         if not isinstance(t, dict) or "name" not in t:
             continue
         tname = str(t["name"])
