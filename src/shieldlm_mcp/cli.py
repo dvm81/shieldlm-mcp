@@ -34,6 +34,7 @@ class Format(str, Enum):
 class DetectorKind(str, Enum):
     heuristic = "heuristic"
     shieldlm = "shieldlm"
+    shieldlm_tools = "shieldlm-tools"
 
 
 def _version(value: bool) -> None:
@@ -88,8 +89,8 @@ def scan(
     fmt: Annotated[Format, typer.Option("--format", "-f", help="Output format.")] = Format.table,
     out: Annotated[Path | None, typer.Option("--out", "-o", help="Write the report to this file.")] = None,
     fail_on: Annotated[Severity, typer.Option("--fail-on", help="Exit 1 if any finding is at or above this severity.")] = Severity.HIGH,
-    detector: Annotated[DetectorKind, typer.Option("--detector", help="heuristic (no dependencies) or shieldlm (local ML model, needs the [ml] extra).")] = DetectorKind.heuristic,
-    fpr: Annotated[float, typer.Option("--fpr", help="ShieldLM false-positive budget: 0.001, 0.005, 0.01 or 0.05.")] = 0.001,
+    detector: Annotated[DetectorKind, typer.Option("--detector", help="heuristic (no dependencies); shieldlm or shieldlm-tools (local ML model, needs the [ml] extra; shieldlm-tools is fine-tuned on tool descriptions, experimental).")] = DetectorKind.heuristic,
+    fpr: Annotated[float | None, typer.Option("--fpr", help="ML false-positive budget. shieldlm: 0.001 (default), 0.005, 0.01 or 0.05. shieldlm-tools: 0.005, 0.01 (default), 0.02 or 0.05.")] = None,
     suppress: Annotated[list[str] | None, typer.Option("--suppress", help="Fingerprint of a reviewed finding to ignore (repeatable).")] = None,
     allowlist: Annotated[Path | None, typer.Option("--allowlist", help="File of reviewed fingerprints to ignore.")] = None,
     state: Annotated[Path, typer.Option("--state", help="Approved tool-description hashes, for drift detection.")] = Path(".shieldlm-mcp/state.json"),
@@ -102,7 +103,7 @@ def scan(
     try:
         inventory = _inventory(paths or [])
         fd = load_feed(feed)
-        kwargs = {"fpr_target": fpr} if detector == DetectorKind.shieldlm else {}
+        kwargs = {"fpr_target": fpr} if detector != DetectorKind.heuristic else {}
         det = build_detector(detector.value, **kwargs)
         ctx = ScanContext(detector=det, feed=fd, previous_hashes=_load_state(state))
         findings = run_all(inventory, ctx)

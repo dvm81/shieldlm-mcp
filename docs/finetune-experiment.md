@@ -1,83 +1,82 @@
 # Fine-tuning ShieldLM on tool descriptions
 
-ShieldLM was trained on prompts. On real tool descriptions it misfires: at the threshold where it flags 1% of real descriptions, it catches only 10% of MCPTox. This experiment fine-tunes it on tool descriptions and measures what that buys. The shipped detector still uses the original model.
+ShieldLM was trained on prompts. On real tool descriptions it misfires: they are full of instructions by design, and at thresholds that keep false alarms on real descriptions near 1% it catches almost no attacks. This experiment fine-tunes it on tool descriptions in English and eight other languages. The result is published as [dmilush/shieldlm-deberta-mcp-tools](https://huggingface.co/dmilush/shieldlm-deberta-mcp-tools) and used by `--detector shieldlm-tools`. It is experimental; the default detector is still the rules.
 
-Reproduce on a GPU machine with `scripts/finetune_tools.py` (needs the `[ml]` extra plus `pandas` and `pyarrow`, MCPTox in `data/mcptox_pure_tool.json`, and the npm descriptions in `data/npm_benign_descriptions.jsonl`). Each run takes about 3 minutes on an RTX 3090. The independent test sets below are built with `scripts/build_external.py` and scored with `scripts/eval_external.py`.
+## Data and splits
 
-## Setup
+Every source is split by MCP server or npm package (`tests/corpus/eval_split.json`), so no test text shares a server or package with training text. Training sees only `train`, thresholds come from `calib`, runs are compared on `dev`, and results are reported on `test`.
 
-Data is split by server and package in `tests/corpus/eval_split.json`, so nothing in a test set shares a server or package with training.
-
-| | Poisoned | Benign |
+| Split | Poisoned | Benign |
 | --- | --- | --- |
-| Training | MCPTox, 22 dev servers (239), repeated 3×; tuning corpus (28) | npm, 40 train packages (1,369); tuning corpus (50) |
-| Replay, to keep prompt-injection skills | 1,500 from ShieldLM's training data | 1,500 from ShieldLM's training data |
-| Threshold calibration | | npm, 9 calib packages (606) |
-| Test | MCPTox, 23 test servers (246); held-out corpus (20) | npm, 28 test packages (876); held-out corpus (30) |
-| Independent test, never used for rules or training | 244 from three other public sets (below) | 186 from the same sets |
+| train | MCPTox, 22 servers (239); hand-written tuning set (28) | npm English, 40 packages (1,369); npm non-English, 216 packages (1,400 sampled from 6,806); tuning set (50) |
+| calib | | npm English, 9 packages (606); npm non-English, 86 packages (2,824) |
+| dev | Independent sets, half of their servers (115) | Same (102) |
+| test | MCPTox, other 23 servers (246); independent sets, other half (129); held-out set (20) | npm English, 28 packages (876); npm non-English, 136 packages (4,108); independent sets (84); held-out set (30) |
 
-Training starts from `dmilush/shieldlm-deberta-base`: 3 epochs, learning rate 2e-5, batch 16, bf16, transformers 5.3.0. Every configuration ran with seeds 0, 1 and 2; tables show the mean and, in brackets, the range. Thresholds are set on logit margins so they keep their resolution where probabilities round to 0.9999.
+- **Independent sets:** MCP-SafetyBench, MSB and mcp-tool-poisoning (`scripts/build_external.py`), written without reference to MCPTox and never trained on. Attacks that give the model no instruction (self-promotion, copied descriptions, extra parameters) are reported separately; nothing flags them.
+- **Non-English benign descriptions:** strings passed as `description` or `.describe(...)` in npm packages of MCP servers described in other languages (`scripts/collect_npm_descriptions.py`): 68,141 strings from 438 packages, capped at 60 per package. By language after the cap: Korean, Chinese, Russian, Japanese, Spanish, Portuguese, French, a little German and Italian.
+- **Translations:** poisoned and benign rows of train, dev and test were machine-translated into Chinese, Japanese, Korean, Russian, German, Spanish, French and Portuguese (`scripts/translate_descriptions.py`): two languages for each poisoned training row, one otherwise. Translating both classes the same way keeps translation artifacts from predicting the label. Calibration rows are not translated. The translator was Qwen3.6-35B-A3B (Apache-2.0) in llama.cpp; 2,397 of 2,410 translations passed the automatic checks (target language, not cut off, code, paths and tool names unchanged).
 
-## Results on MCPTox
+`scripts/build_tool_dataset.py` puts it all in one file.
 
-At the threshold that flags 1% of the calibration descriptions:
+## Procedure
 
-| Model | MCPTox test | npm test flagged | Held-out corpus caught | With rules |
+- **Training:** from dmilush/shieldlm-deberta-base; poisoned rows repeated 3×; plus a replay sample of ShieldLM's own training data, half injections. 3 epochs, learning rate 2e-5, batch 16, bf16, transformers 5.3.0.
+- **Thresholds:** each budget (0.5%, 1%, 2%, 5%) takes the stricter of two thresholds, one that flags that share of the English calib descriptions and one for the non-English ones. Scores are logit margins, so thresholds keep their resolution where probabilities round to 1.
+- **Choosing a run:** ten runs, replay 3,000 or 8,000 and seeds 0–4. Runs whose ShieldLM validation recall at 0.1% FPR fell more than 3 points below the base model's were excluded (seven of ten). Among the rest, the run with the highest dev recall at the 1% threshold was chosen: replay 8,000, seed 0. Its test numbers are the result; the spread over seeds is reported too.
+
+## Results
+
+Test split, 1% threshold:
+
+| Test set | Rules | Base model | Chosen model | Chosen + rules |
 | --- | --- | --- | --- | --- |
-| Base ShieldLM | 10.2% | 0.2% | 10% | 60% |
-| Fine-tuned | 97.2% (96–98) | 0.0% | 32% (30–35) | 62% |
+| Independent attacks (129) | 24.8% | 0% | 89.1% | 93.0% |
+| Same, translated (128) | 7.8% | 0% | 71.9% | 71.9% |
+| MCPTox (246) | 48.0% | 1.2% | 100% | 100% |
+| MCPTox, translated (245) | 14.7% | 0.4% | 100% | 100% |
+| Held-out set (20) | 55% | 0% | 70% | 80% |
+| Held-out set, translated (20) | 20% | 0% | 65% | 65% |
 
-These thresholds turned out to be set by nine Chinese descriptions; see [Non-English text](#non-english-text). Calibrated on English text only, the fine-tuned models catch 99.6–100% of MCPTox test and, with the rules, 85% of the held-out corpus.
+Benign descriptions flagged by the chosen model:
 
-**Unseen attack styles.** MCPTox has three templates, and the test servers share them with training. Leaving one template out of training entirely and testing on it, at the 1% threshold:
+| Test set | at 0.5% | at 1% | at 2% |
+| --- | --- | --- | --- |
+| npm English (876) | 1.3% | 1.7% | 3.2% |
+| npm non-English (4,108) | 1.2% | 1.9% | 3.9% |
+| npm English, translated (399) | 2.3% | 4.0% | 8.0% |
+| Independent sets (84 / 84 translated) | 0% / 0% | 0% / 1.2% | 0% / 2.4% |
 
-| Template left out | Recall on that template | Base model on it |
-| --- | --- | --- |
-| Template-1 | 56% (23–74) | 10% |
-| Template-2 | 89% (79–100) | 7% |
-| Template-3 | 72% (53–89) | 12% |
+Rules flag none of them.
 
-**Prompt injections.** On ShieldLM's own test split, recall at 1% FPR barely moves (98.6% → 98.2%), but at 0.1% FPR it drops from 96.0% to 93.0%. One run without Template-3 fell to 19% there, so the replay mix is too small to make this reliable.
+**By language,** real non-English test descriptions flagged at 1%: Japanese 0.0% (508), Korean 0.7% (992), Russian 1.0% (794), Chinese 1.6% (834), Spanish 3.2% (442), French 4.6% (173), Portuguese 7.3% (328), German 12% (33, two packages). The non-English calibration set is mostly Korean, Chinese and Russian, so Latin-script languages other than English go over budget.
 
-## Independent test sets
+**Seeds.** Over the five runs with replay 8,000, at 1%: independent attacks 71.9% on average (60–89%), 78.1% (67–93%) with rules; translated 70.5% (62–77%); npm English flagged 1.3% (1–2%); npm non-English 1.9%. The chosen run is at the top of the range on test, as it was on dev. Expect a retrained model anywhere in it.
 
-Three public sets written without reference to MCPTox:
+**Prompt injections.** On ShieldLM's test split, recall at 0.1% FPR is 94.8% (base 96.0%) and at 1% FPR 98.2% (base 98.6%). The check on that excluded four of five runs with replay 3,000 and three of five with replay 8,000.
 
-| Set | Poisoned, with instructions | Benign |
-| --- | --- | --- |
-| [MCP-SafetyBench](https://github.com/xjzzzzzzzz/MCPSafety) (ICLR 2026): attacks written per task, in 7 categories such as command injection, redirection to another tool, and shadowing another tool | 114 | 155, from its servers |
-| [MSB](https://github.com/dongsenzhang/MSB) (ICLR 2026): one template that impersonates the user, with 5 goals, on 21 tools | 105 | 21 |
-| [mcp-tool-poisoning](https://huggingface.co/datasets/fevziegeyurtsevenler/mcp-tool-poisoning): 25 short pairs | 25 | 10 |
+## The first version
 
-They also hold 70 attacks that give the model no instruction: a tool advertised as "the best tool in the world", a copy of another tool's description, or an extra parameter asking for the model's name. No detector flags any of them, and they are left out of the numbers below. Catching them needs checks on names and schemas, not on text.
+An earlier version trained on English data only (commit aacc8b5). It caught 97% of held-out MCPTox servers but only 12% of the independent attacks, which looked like it had learned MCPTox's style. It hadn't: the English npm calib packages include nine Chinese descriptions, all from `@snowluma/mcp`, and the model, which had never seen Chinese, scored all nine as certain injections. They are 1.5% of the calib set, so the 1% threshold sat above them and above most attacks. Calibrated on English text alone, the same model caught 77% of the independent attacks. That model would have flagged every Chinese description, which is why this version adds real and translated text in other languages. The chosen model scores those nine descriptions at a margin of −8.5, far below its 1% threshold of −5.45.
 
-The seed 1 and 2 models here were retrained to save them. Training is not bit-for-bit reproducible on GPU: the retrained seed 1 caught 90% of MCPTox test at the original 1% threshold, against 96% the first time.
+## Limitations
 
-Thresholds calibrated on the English npm calib descriptions (`--latin-calib`):
+- **Translated attacks are not native attacks.** Non-English recall is measured on machine translations.
+- **Latin-script languages other than English** are flagged more often than the budget (French 4.6%, Portuguese 7.3% at 1%).
+- **Training attacks are narrow:** one benchmark plus a small hand-written set. Recall on the independent sets is the best guide to new attack styles, and it varies between runs.
+- **No instruction, no detection.** Self-promotion, copied descriptions and extra parameters are not flagged.
+- **False positives of 1–2%** on real descriptions. Findings from the model alone are reported as `medium`, below the default `--fail-on high`.
 
-| Threshold | Model | External attacks | With rules | External benign flagged | npm test flagged | Held-out corpus, with rules |
-| --- | --- | --- | --- | --- | --- | --- |
-| – | Rules alone | 29.9% | | 0% | 0% | 55% |
-| 1% | Base ShieldLM | 0.4% | 30.3% | 0% | 0.1% | 60% |
-| 0.5% | Fine-tuned | 63% (56–69) | 75% (69–80) | 1.2% (0.5–2.7) | 1.0% (0.8–1.3) | 80% (75–85) |
-| 1% | Fine-tuned | 77% (60–92) | 84% (72–94) | 2.5% (0.5–4.3) | 2.0% (1.7–2.6) | 85% |
-| 2% | Fine-tuned | 92% (86–96) | 94% (91–96) | 4.5% (3.8–5.4) | 3.0% (2.5–3.3) | 87% (85–90) |
+## Reproduce
 
-By set, at the 1% threshold with rules: MCP-SafetyBench 42% → 82% (68–94), MSB 0% → 82% (70–93), mcp-tool-poisoning 100% → 100%. The base model adds less than one point at any of these thresholds, because real descriptions already fill its top scores.
+```bash
+python scripts/build_external.py --safetybench MCPSafety --msb MSB --mtp mtp.jsonl -o data/external.jsonl
+python scripts/collect_npm_descriptions.py -o data/npm_nonen_descriptions.jsonl
+python scripts/build_tool_dataset.py -o data/tool_dataset.jsonl
+python scripts/translate_descriptions.py data/tool_dataset.jsonl -o data/translations.jsonl --endpoint http://localhost:8080/v1
+python scripts/finetune_tools.py --epochs 0 --out results/finetune2/base.json
+python scripts/finetune_tools.py --replay 8000 --seed 0 --save-model models/r8000_s0 --out results/finetune2/r8000_s0.json   # and the other runs
+python scripts/finetune_tools.py --select results/finetune2/*.json
+```
 
-Rules alone catch 55% of the held-out corpus here, not the README's 60%, because one of its attacks is caught only through hidden content, which this count leaves out.
-
-## Non-English text
-
-The npm calib packages include nine Chinese descriptions, all from `@snowluma/mcp`; the train and test packages have none. All three fine-tuned models rank all nine among their ten highest-scoring calib descriptions, as near-certain injections. Nine of 606 is 1.5%, so thresholds at 0.5% and 1% sit above them and above most attacks. With the original calibration, the fine-tuned models catch only 12% (9–15) of the external attacks at 1%, and 36% (34–40) with rules.
-
-The fine-tuned models therefore treat Chinese tool descriptions as attacks. Training had no non-English benign descriptions, and ShieldLM's own data is mostly English.
-
-## Reading
-
-- Fine-tuning makes a strict threshold usable on English descriptions, and it carries over to attacks written independently of MCPTox. At a threshold that flags about 2% of real English descriptions, the fine-tuned model with the rules catches 84% of the external attacks, against 30% for the rules alone.
-- An earlier version of this page concluded that fine-tuning added almost nothing on the held-out corpus (60% → 62%). That came from thresholds set by the Chinese descriptions; with English calibration the held-out corpus goes from 60% to 85%.
-- The models read non-English text as injection. A detector that flags every Chinese description cannot ship.
-- Seeds differ widely (60–92% at 1%), and the same seed does not retrain to the same model.
-
-Before shipping a model trained this way, it needs non-English benign descriptions in training and test, a way to choose between runs on a dev set rather than a test set, more replay to keep strict-threshold recall on prompt injections, and calibration on a larger set of real descriptions.
+Each training run takes 5–10 minutes on an RTX 3090. The scripts' docstrings say where to get MCPTox, the independent sets and the English npm descriptions.

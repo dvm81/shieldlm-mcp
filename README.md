@@ -53,16 +53,18 @@ Client configs say how to start a server, not what its tools say, so injection c
 
 A raw `tools/list` JSON-RPC response also works. Getting that list means starting the server once, for example with the [MCP Inspector](https://github.com/modelcontextprotocol/inspector); do that in a sandbox for servers you don't trust.
 
-### Using ShieldLM
+### Using an ML model
 
 ```bash
 pip install "shieldlm-mcp[ml] @ git+https://github.com/dvm81/shieldlm-mcp"
+shieldlm-mcp scan . --detector shieldlm-tools          # experimental, recommended
 shieldlm-mcp scan . --detector shieldlm --fpr 0.001
 ```
 
-This adds [dmilush/shieldlm-deberta-base](https://huggingface.co/dmilush/shieldlm-deberta-base), run locally, on top of the rules: a description is flagged if either fires. `--fpr` picks a threshold calibrated on ShieldLM's validation data (0.001, 0.005, 0.01 or 0.05).
+Either adds a classifier, run locally, on top of the rules: a description is flagged if either fires. A finding from the model alone is reported as `medium`, below the default `--fail-on high`: review it, but don't block on it.
 
-ShieldLM was trained on prompts, and on tool descriptions it misfires far more often than `--fpr` suggests. On the 2,851 real npm descriptions below, `--fpr 0.001` flags 4.1% of them and catches 38% of MCPTox; `--fpr 0.01` catches 90% of MCPTox but flags 25% of the real descriptions. A finding from ShieldLM alone is therefore reported as `medium`, below the default `--fail-on high`: review it, but don't block on it.
+- **`shieldlm-tools`** loads [dmilush/shieldlm-deberta-mcp-tools](https://huggingface.co/dmilush/shieldlm-deberta-mcp-tools), ShieldLM fine-tuned on tool descriptions in English and eight other languages. At the default `--fpr 0.01` it catches 89% of attacks from independent benchmarks it never trained on (93% with the rules, against 25% for the rules alone), and flags 1.7% of real English and 1.9% of real non-English descriptions. Thresholds: 0.005, 0.01, 0.02 or 0.05. Details, per-language numbers and limits: [docs/finetune-experiment.md](docs/finetune-experiment.md).
+- **`shieldlm`** loads [dmilush/shieldlm-deberta-base](https://huggingface.co/dmilush/shieldlm-deberta-base), trained on prompts. On tool descriptions it misfires: on 2,851 real npm descriptions, `--fpr 0.001` flags 4.1% of them and catches 38% of MCPTox; `--fpr 0.01` catches 90% of MCPTox but flags 25% of the real descriptions.
 
 ## How well it detects poisoned descriptions
 
@@ -118,10 +120,10 @@ Findings appear as code-scanning alerts on the pull request. Reviewed findings c
 
 ## Limitations
 
-- English only; the held-out set includes a German injection that both detectors miss.
+- The rules read English only. `shieldlm-tools` reads eight other languages, but its non-English attacks were tested on machine translations, and it flags real French and Portuguese descriptions more often than its budget (4.6% and 7.3% at `--fpr 0.01`).
 - Tool descriptions are only checked when you provide a `*.tools.json` snapshot.
 - The known-good registry for typosquat checks covers about 25 popular servers, and the malicious feed has one sourced entry so far.
-- ShieldLM was trained on prompts, not tool descriptions: on real descriptions it flags 4.1% at `--fpr 0.001`, so its findings alone are warnings.
+- No detector flags attacks that give the model no instruction, such as a tool advertising itself as the best or copying another tool's description.
 
 ## Roadmap
 

@@ -39,9 +39,11 @@ def build_detector(kind: str = "heuristic", **kwargs) -> EnsembleDetector:
     heuristic = HeuristicDetector()
     if kind == "heuristic":
         return EnsembleDetector(heuristic)
-    if kind == "shieldlm":
-        from .shieldlm import ShieldLMDetector
+    if kind in ("shieldlm", "shieldlm-tools"):
+        from .shieldlm import TOOLS_MODEL, ShieldLMDetector
 
+        if kind == "shieldlm-tools":
+            kwargs.setdefault("model", TOOLS_MODEL)
         return EnsembleDetector(heuristic, ShieldLMDetector(**kwargs))
     raise ValueError(f"unknown detector: {kind}")
 

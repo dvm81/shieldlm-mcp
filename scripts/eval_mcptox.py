@@ -35,8 +35,8 @@ SPLIT = Path(__file__).resolve().parent.parent / "tests" / "corpus" / "eval_spli
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("path", type=Path, help="MCPTox pure_tool.json")
-    ap.add_argument("--detector", choices=["heuristic", "shieldlm"], default="heuristic")
-    ap.add_argument("--fpr", type=float, default=0.001, help="ShieldLM false-positive budget")
+    ap.add_argument("--detector", choices=["heuristic", "shieldlm", "shieldlm-tools"], default="heuristic")
+    ap.add_argument("--fpr", type=float, help="ML false-positive budget (default: the model's own)")
     ap.add_argument("--misses", type=int, default=0, help="Print this many missed descriptions")
     ap.add_argument("--split", choices=["all", "dev", "test"], default="all", help="Servers to include (see tests/corpus/eval_split.json)")
     args = ap.parse_args()
@@ -46,7 +46,7 @@ def main() -> None:
     if args.split != "all":
         servers = set(json.loads(SPLIT.read_text(encoding="utf-8"))["mcptox"][args.split])
         rows = [r for r in rows if r["server_name"] in servers]
-    det = build_detector(args.detector, **({"fpr_target": args.fpr} if args.detector == "shieldlm" else {}))
+    det = build_detector(args.detector, **({"fpr_target": args.fpr} if args.detector != "heuristic" else {}))
     results = det.score_batch([r["tool_content"] for r in rows])
 
     def caught(res) -> bool:

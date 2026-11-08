@@ -36,11 +36,11 @@ def evaluate(detector, path: Path, show_errors: bool) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--detector", choices=["heuristic", "shieldlm"], default="heuristic")
-    ap.add_argument("--fpr", type=float, default=0.001, help="ShieldLM false-positive budget (0.001, 0.005, 0.01, 0.05)")
+    ap.add_argument("--detector", choices=["heuristic", "shieldlm", "shieldlm-tools"], default="heuristic")
+    ap.add_argument("--fpr", type=float, help="ML false-positive budget (default: the model's own)")
     ap.add_argument("--errors", action="store_true", help="Print every miss and false positive")
     args = ap.parse_args()
-    det = build_detector(args.detector, **({"fpr_target": args.fpr} if args.detector == "shieldlm" else {}))
+    det = build_detector(args.detector, **({"fpr_target": args.fpr} if args.detector != "heuristic" else {}))
     print(f"detector: {det.name}")
     for name in ("descriptions.jsonl", "holdout.jsonl"):
         r = evaluate(det, CORPORA / name, args.errors)

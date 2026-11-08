@@ -6,7 +6,7 @@ shieldlm-mcp reads MCP configuration files, turns them into one inventory of ser
 config files ─┐
               ├─▶ discovery ─▶ inventory ─▶ checks C1–C4 ─▶ findings ─▶ table / JSON / SARIF / policy ─▶ exit code
 *.tools.json ─┘                               ▲
-                              detector (rules, optionally + ShieldLM)
+                              detector (rules, optionally + an ML model)
                               indicator feed (known-bad, known-good)
 ```
 
@@ -74,13 +74,17 @@ A text is flagged at 0.5 or above. One strong rule is enough; weak rules only co
 
 The rules from `precedence_claim` down to `destructive` were written from the poisoned descriptions of 22 MCPTox servers (the `dev` half of `tests/corpus/eval_split.json`). On the other 23 servers they raised recall from 16% to 48%, with no false positives on 876 real descriptions from npm packages that were also held out. Both halves share MCPTox's three attack templates, so expect less on attacks phrased differently: on 244 attacks from three other public sets, the rules catch 30%.
 
-### ShieldLM (optional)
+### ML models (optional)
 
 `--detector shieldlm` loads [dmilush/shieldlm-deberta-base](https://huggingface.co/dmilush/shieldlm-deberta-base) locally (install with the `[ml]` extra), scores texts in batches of 16 truncated to 512 tokens, and applies the threshold calibrated for the false-positive budget you choose with `--fpr` (0.001, 0.005, 0.01 or 0.05). It runs alongside the rules: a text is flagged if either fires.
 
 On load it scores one known injection and one plain description, and stops with an error unless it tells them apart. Some transformers releases load the model without a warning but give every text about the same score; the `[ml]` extra pins transformers to versions that pass this check.
 
-ShieldLM was trained on prompts, not tool descriptions. On 2,851 real descriptions from npm packages it flags 4.1% at `--fpr 0.001` and 25% at `--fpr 0.01`, so C1 reports a finding from ShieldLM alone as `medium`. When a rule fires as well, the rule decides the severity. Compare both detectors with `python scripts/eval_corpus.py --detector shieldlm`.
+ShieldLM was trained on prompts, not tool descriptions. On 2,851 real descriptions from npm packages it flags 4.1% at `--fpr 0.001` and 25% at `--fpr 0.01`.
+
+`--detector shieldlm-tools` loads [dmilush/shieldlm-deberta-mcp-tools](https://huggingface.co/dmilush/shieldlm-deberta-mcp-tools) instead: ShieldLM fine-tuned on tool descriptions in English and eight other languages. Its thresholds (`--fpr` 0.005, 0.01 by default, 0.02 or 0.05) were set on real tool descriptions, so each flags at most that share of the English and of the non-English calibration descriptions. At 0.01 it catches 89% of attacks from three independent benchmarks and flags about 2% of real descriptions; see [finetune-experiment.md](finetune-experiment.md).
+
+With either model, C1 reports a finding from the model alone as `medium`. When a rule fires as well, the rule decides the severity. Compare detectors with `python scripts/eval_corpus.py --detector shieldlm` or `python scripts/eval_external.py --model ...`.
 
 ## 3. Checks
 
@@ -151,7 +155,7 @@ The text targets a credential file, so the result is a critical **MCP-C1-INJECTI
 ## Limitations
 
 - Tool descriptions are checked only when you provide a snapshot.
-- The rules miss attacks without tell-tale wording: 8 of 20 on the held-out corpus, 128 of 246 on the held-out MCPTox servers, and 171 of 244 from other public sets. That gap is what the ShieldLM backend, and enforcement outside the model, are for.
-- English only.
+- The rules miss attacks without tell-tale wording: 8 of 20 on the held-out corpus, 128 of 246 on the held-out MCPTox servers, and 171 of 244 from other public sets. That gap is what the ML models, and enforcement outside the model, are for.
+- The rules read English only; `shieldlm-tools` also reads Chinese, Japanese, Korean, Russian, German, Spanish, French and Portuguese.
 - The feed has one malicious entry and about 25 known-good servers.
-- ShieldLM was trained on prompts, not tool descriptions.
+- The base ShieldLM model was trained on prompts, not tool descriptions; prefer `shieldlm-tools`.
