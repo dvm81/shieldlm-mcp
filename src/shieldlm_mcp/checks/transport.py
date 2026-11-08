@@ -6,11 +6,12 @@ import re
 from urllib.parse import parse_qsl, urlsplit
 
 from ..models import Finding, Inventory, Transport
-from ..redact import mask
+from ..redact import is_indirect, is_placeholder, is_reference, mask
 from . import ScanContext, make_finding
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"}
-CRED_PARAM = re.compile(r"(token|key|secret|password|passwd|auth|sig|signature|session)", re.I)
+# The parameter name has to end in the credential word: exaApiKey and token count, maxTokenBudget does not.
+CRED_PARAM = re.compile(r"(token|key|secret|password|passwd|pwd|auth|sig|signature|session)$", re.I)
 
 
 def run(inventory: Inventory, ctx: ScanContext) -> list[Finding]:
@@ -36,7 +37,8 @@ def run(inventory: Inventory, ctx: ScanContext) -> list[Finding]:
                     remediation="Use the server's https:// endpoint.",
                 )
             )
-        secret_params = [(k, v) for k, v in parse_qsl(parts.query) if CRED_PARAM.search(k) and v]
+        secret_params = [(k, v) for k, v in parse_qsl(parts.query)
+                         if CRED_PARAM.search(k) and v and not (is_reference(v) or is_placeholder(k, v) or is_indirect(v))]
         if secret_params or parts.password:
             shown = ", ".join(f"{k}={mask(v)}" for k, v in secret_params) or "password in URL"
             findings.append(

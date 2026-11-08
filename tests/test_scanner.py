@@ -156,6 +156,18 @@ def test_env_references_are_not_secrets():
     for placeholder in ["YOUR_API_KEY", "your-github-token", "<your token>", "GOOGLE_API_KEY_HERE", "sk-xxxxxxxxxxxxxxxxxxxx",
                         "replace_me", "API_KEY"]:
         assert not looks_like_secret("API_KEY", placeholder), placeholder
+    for indirect in ["${user_config.api_key}", "${workspaceFolder}/key.json", "op://vault/github/token", "ENC[AES256_GCM,data:abc]",
+                     "/Users/me/.config/gcloud/creds.json", "C:\\Users\\me\\key.json", "https://auth.example.com/token", "SEU_TOKEN_AQUI",
+                     "aaaaaaaaaaaa"]:
+        assert not looks_like_secret("GOOGLE_APPLICATION_CREDENTIALS_TOKEN", indirect), indirect
+    assert looks_like_secret("SUPABASE_ACCESS_TOKEN", "sbp_" + "0123456789abcdef" * 2)
+
+
+def test_credentials_in_urls_skip_placeholders_and_unrelated_params():
+    _, f = scan_config({"a": {"url": "https://mcp.example.com/mcp?maxTokenBudget=5000&exaApiKey=${EXA_KEY}&token=YOUR_TOKEN"}})
+    assert not any(x.rule_id == "MCP-C3-CREDENTIAL-IN-URL" for x in f)
+    _, f = scan_config({"a": {"url": "https://mcp.example.com/mcp?exaApiKey=3f9a1c2b7d8e4f6a9b0c1d2e3f4a5b6c"}})
+    assert [x.rule_id for x in f] == ["MCP-C3-CREDENTIAL-IN-URL"]
     token = "gh" + "p_" + "A" * 36
     assert looks_like_secret("ANYTHING", token)
     assert token not in scrub(f"value {token} here")

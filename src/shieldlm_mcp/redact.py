@@ -12,7 +12,13 @@ TOKEN_SHAPES = re.compile(
 )
 
 # Values people leave for the reader to fill in: YOUR_API_KEY, <token>, sk-xxxx, replace_me, GITHUB_TOKEN_HERE.
-PLACEHOLDER = re.compile(r"your|here$|replace|change[-_ ]?me|placeholder|example|dummy|redacted|<[^>]*>|\{\{|x{4,}|\*{3,}|\.\.\.", re.I)
+PLACEHOLDER = re.compile(
+    r"your|here$|replace|change[-_ ]?me|placeholder|example|dummy|fake|fixture|redacted|<[^>]*>|\{\{|x{4,}|\*{3,}|\.\.\."
+    r"|paste|seu_|sua_|substitu|reemplaz|remplac|ersetz|votre",  # the same in Portuguese, Spanish, French, German
+    re.I,
+)
+# Values that point at a secret instead of holding it: templates, secret-manager references, file paths, plain URLs.
+INDIRECT = re.compile(r"\$\{|\{\{|\{env:|^env:|^op://|^ENC\[|^vault:|^~?/|^\.\.?/|^[A-Za-z]:[\\/]|^https?://[^/@]*(/|$)")
 
 
 def is_reference(value: str) -> bool:
@@ -23,13 +29,21 @@ def is_reference(value: str) -> bool:
 def is_placeholder(name: str, value: str) -> bool:
     """True for a value left to be filled in, such as YOUR_API_KEY or the variable's own name."""
     v = value.strip()
-    return bool(PLACEHOLDER.search(v)) or v.upper() == name.upper()
+    dummy = len(v) >= 8 and len(set(v.lower())) <= 3  # aaaaaaaa, 11111111-1111-...
+    return bool(PLACEHOLDER.search(v)) or v.upper() == name.upper() or dummy
+
+
+def is_indirect(value: str) -> bool:
+    """True when the value names where a secret lives (a template, op:// reference, path or URL) rather than holding it."""
+    return bool(INDIRECT.search(value.strip()))
 
 
 def looks_like_secret(name: str, value: str) -> bool:
     if not value or is_reference(value) or is_placeholder(name, value):
         return False
-    return bool(TOKEN_SHAPES.search(value)) or (bool(SECRET_KEY.search(name)) and len(value) >= 8)
+    if TOKEN_SHAPES.search(value):
+        return True
+    return bool(SECRET_KEY.search(name)) and len(value) >= 8 and not is_indirect(value)
 
 
 def mask(value: str) -> str:
